@@ -165,7 +165,35 @@
             required
           />
           <div class="err" id="loginErr"></div>
-          <div class="actions"><button>Увійти</button></div>
+          <div class="actions">
+            <button>Увійти</button>
+            <button type="button" class="sec" id="forgot">Забули пароль?</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="resetRequest" class="box" hidden>
+        <h1>Скидання пароля</h1>
+        <form id="resetRequestForm">
+          <label for="resetEmail">Email адміністратора</label>
+          <input id="resetEmail" type="email" autocomplete="username" required />
+          <div class="err" id="resetRequestErr"></div>
+          <div class="actions">
+            <button>Надіслати посилання</button>
+            <button type="button" class="sec" id="resetRequestCancel">Назад</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="newPassword" class="box" hidden>
+        <h1>Новий пароль</h1>
+        <form id="newPasswordForm">
+          <label for="password1">Новий пароль</label>
+          <input id="password1" type="password" autocomplete="new-password" minlength="6" required />
+          <label for="password2">Повторіть пароль</label>
+          <input id="password2" type="password" autocomplete="new-password" minlength="6" required />
+          <div class="err" id="newPasswordErr"></div>
+          <div class="actions"><button>Змінити пароль</button></div>
         </form>
       </div>
 
@@ -223,8 +251,8 @@
 
     <script>
       /* ===== НАЛАШТУВАННЯ: ті самі дані, що й у index.html ===== */
-      const SUPABASE_URL = "sb_publishable_Uvz6qmb6_bWFoabg5Mke4g_Dy8gqqIh";
-      const SUPABASE_KEY = "sb_secret_Cn6_VsPQMmQxbc64LtTRFg_IqMA-NaQ";
+      const SUPABASE_URL = "https://weabeuhpmzsqxuexidgl.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_Uvz6qmb6_bWFoabg5Mke4g_Dy8gqqIh";
 
       const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       const $ = (id) => document.getElementById(id);
@@ -240,9 +268,35 @@
       function show(on) {
         $("login").hidden = on;
         $("app").hidden = !on;
+        $("resetRequest").hidden = true;
+        $("newPassword").hidden = true;
         if (on) load();
       }
+      function showLogin() {
+        $("login").hidden = false;
+        $("app").hidden = true;
+        $("resetRequest").hidden = true;
+        $("newPassword").hidden = true;
+      }
+      function showResetRequest() {
+        $("login").hidden = true;
+        $("app").hidden = true;
+        $("resetRequest").hidden = false;
+        $("newPassword").hidden = true;
+        $("resetEmail").value = $("email").value;
+        $("resetRequestErr").textContent = "";
+      }
       db.auth.getSession().then(({ data }) => show(!!data.session));
+
+      db.auth.onAuthStateChange((event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          $("login").hidden = true;
+          $("app").hidden = true;
+          $("resetRequest").hidden = true;
+          $("newPassword").hidden = false;
+          $("newPasswordErr").textContent = "";
+        }
+      });
 
       $("loginForm").onsubmit = async (e) => {
         e.preventDefault();
@@ -256,6 +310,46 @@
       $("logout").onclick = async () => {
         await db.auth.signOut();
         show(false);
+      };
+      $("forgot").onclick = showResetRequest;
+      $("resetRequestCancel").onclick = showLogin;
+
+      $("resetRequestForm").onsubmit = async (e) => {
+        e.preventDefault();
+        $("resetRequestErr").textContent = "";
+        const redirectTo =
+          window.location.origin + window.location.pathname;
+        const { error } = await db.auth.resetPasswordForEmail(
+          $("resetEmail").value.trim(),
+          { redirectTo },
+        );
+        if (error) {
+          $("resetRequestErr").textContent =
+            "Не вдалося надіслати лист: " + error.message;
+        } else {
+          $("resetRequestErr").textContent =
+            "Посилання надіслано. Перевірте пошту.";
+        }
+      };
+
+      $("newPasswordForm").onsubmit = async (e) => {
+        e.preventDefault();
+        $("newPasswordErr").textContent = "";
+        if ($("password1").value !== $("password2").value) {
+          $("newPasswordErr").textContent = "Паролі не співпадають";
+          return;
+        }
+        const { error } = await db.auth.updateUser({
+          password: $("password1").value,
+        });
+        if (error) {
+          $("newPasswordErr").textContent =
+            "Не вдалося змінити пароль: " + error.message;
+          return;
+        }
+        await db.auth.signOut();
+        showLogin();
+        $("loginErr").textContent = "Пароль змінено. Увійдіть із новим паролем.";
       };
 
       async function load() {
