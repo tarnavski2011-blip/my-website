@@ -355,7 +355,7 @@
             photo.append(img);
           } else photo.append(el("div", { class: "none" }, "Фото скоро буде"));
           if (p["ціна"])
-            photo.append(el("div", { class: "tag" }, p["ціна"] + " Kč"));
+            photo.append(el("div", { class: "tag" }, p["ціна"] + " грн"));
 
           const body = el("div", { class: "body" });
           body.append(el("h2", {}, p["назва"]));
